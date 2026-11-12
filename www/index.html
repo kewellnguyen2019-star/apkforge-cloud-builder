@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Upscayl Pro - Ultimate Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip cho tính năng tải hàng loạt dạng nén ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #06060a;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        /* Custom Range Slider */
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #a855f7;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.7);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        .slider-thumb::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #c084fc;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        /* Checkerboard pattern cho ảnh PNG trong suốt */
+        .bg-checkerboard {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Dragging state */
+        .drag-active {
+            border-color: #a855f7 !important;
+            background-color: rgba(168, 85, 247, 0.16) !important;
+            transform: scale(1.01);
+            box-shadow: 0 0 35px rgba(168, 85, 247, 0.3);
+        }
+
+        /* Scale button active glow */
+        .scale-btn-active {
+            background: linear-gradient(135deg, #9333ea 0%, #4f46e5 100%) !important;
+            border-color: #c084fc !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 20px -4px rgba(147, 51, 234, 0.55);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
+
+    <!-- Full-Screen Drag & Drop Overlay -->
+    <div id="globalDropOverlay" class="hidden fixed inset-0 z-[90] bg-purple-950/85 backdrop-blur-md border-4 border-dashed border-purple-400 m-3 rounded-3xl flex flex-col items-center justify-center pointer-events-none transition-all">
+        <div class="w-20 h-20 rounded-3xl bg-purple-500/30 border border-purple-300/40 flex items-center justify-center mb-4 animate-bounce">
+            <i data-lucide="download-cloud" class="w-10 h-10 text-white"></i>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white">Thả ảnh vào đây để thêm ngay</h2>
+        <p class="text-purple-200 text-sm mt-2">Hỗ trợ thả một hoặc nhiều ảnh cùng lúc để Upscale 2X, 3X, 4X, 8K</p>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[100] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl w-full">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-800/80">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-600/30 shrink-0">
+                    <i data-lucide="zap" class="text-white w-7 h-7"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-purple-100 to-purple-400 bg-clip-text text-transparent">
+                            AI Upscayl Pro
+                        </h1>
+                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            2X • 3X • 4X • 8K Ultra HD
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-1">
+                        Nâng cấp độ phân giải 2X, 3X, 4X, 8K chất lượng 100% • Chạm & Kéo thả • Đặt số đầu tên ảnh gốc
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Stats Summary -->
+            <div class="flex flex-wrap items-center gap-3 self-start md:self-auto bg-gray-900/90 border border-gray-800 rounded-2xl p-2.5 px-4 text-xs">
+                <div class="flex items-center gap-2 pr-3 border-r border-gray-800">
+                    <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                    <span class="text-gray-400">Chế độ:</span>
+                    <b id="statScaleMode" class="text-purple-300 text-sm font-extrabold">2X Upscale</b>
+                </div>
+                <div class="flex items-center gap-2 pr-3 border-r border-gray-800">
+                    <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span class="text-gray-400">Tổng ảnh:</span>
+                    <b id="statTotal" class="text-white text-sm">0</b>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span class="text-gray-400">Hoàn tất:</span>
+                    <b id="statDone" class="text-emerald-400 text-sm">0</b>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Left Column: Direct Touch/Drag Upload & Batch Queue (7 cols) -->
+            <div class="lg:col-span-7 flex flex-col gap-5">
+                
+                <!-- Dropzone Area: Phủ trực tiếp input[type=file] lên toàn bộ ô để Chạm & Kéo thả ăn ngay lập tức -->
+                <div id="uploadArea" class="border-2 border-dashed border-gray-700 hover:border-purple-500 rounded-3xl p-8 md:p-10 flex flex-col items-center justify-center text-center hover:bg-gray-900/70 active:scale-[0.99] transition-all cursor-pointer bg-gray-900/40 group relative overflow-hidden select-none shadow-xl">
+                    <!-- Native File Input phủ kín 100% diện tích ô -->
+                    <input type="file" id="fileInput" accept="image/*" multiple title="" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
+
+                    <div id="uploadIconBox" class="w-16 h-16 rounded-2xl bg-purple-600/15 border border-purple-500/30 flex items-center justify-center mb-3.5 group-hover:scale-110 group-hover:bg-purple-600/25 transition-all pointer-events-none">
+                        <i data-lucide="upload-cloud" class="w-8 h-8 text-purple-400"></i>
+                    </div>
+                    <h3 id="uploadTitle" class="text-lg md:text-xl font-bold text-white mb-1 pointer-events-none">
+                        Chạm vào ô này để chọn ảnh hoặc Kéo thả trực tiếp
+                    </h3>
+                    <p id="uploadSubtitle" class="text-sm text-gray-400 max-w-lg pointer-events-none">
+                        Hỗ trợ chọn 1 hoặc nhiều ảnh cùng lúc, kéo thả trực tiếp vào đây hoặc dán <kbd class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 text-xs">Ctrl+V</kbd>
+                    </p>
+                    <div id="uploadBadges" class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-300 pointer-events-none">
+                        <span class="px-3 py-1 rounded-full bg-purple-950/80 border border-purple-500/30 text-purple-300 font-semibold">Upscale 2X • 3X • 4X • 8K</span>
+                        <span class="px-3 py-1 rounded-full bg-gray-800/80 border border-gray-700">Chất lượng tối đa 100%</span>
+                        <span class="px-3 py-1 rounded-full bg-gray-800/80 border border-gray-700">Số đầu + Tên ảnh gốc</span>
+                    </div>
+                </div>
+
+                <!-- Batch Action Toolbar (Hiển thị khi có ảnh) -->
+                <div id="batchToolbar" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label class="relative px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-xs md:text-sm font-semibold text-purple-200 flex items-center gap-2 border border-purple-500/30 transition-all cursor-pointer">
+                            <i data-lucide="plus-circle" class="w-4 h-4 text-purple-400"></i>
+                            <span>Thêm ảnh khác</span>
+                            <input type="file" id="addMoreInput" accept="image/*" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="" />
+                        </label>
+                        <button id="btnClearAll" type="button" class="px-3.5 py-2 rounded-xl bg-gray-800/70 hover:bg-red-950/60 hover:text-red-300 hover:border-red-800/60 text-xs md:text-sm font-medium text-gray-300 flex items-center gap-1.5 border border-gray-700 transition-all">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <span>Xóa tất cả</span>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="btnDownloadAllIndividual" type="button" disabled class="px-3.5 py-2 rounded-xl bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none text-xs md:text-sm font-semibold flex items-center gap-1.5 transition-all">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Tải từng ảnh</span>
+                        </button>
+                        <button id="btnDownloadZip" type="button" disabled class="px-3.5 py-2 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none text-xs md:text-sm font-semibold flex items-center gap-1.5 transition-all">
+                            <i data-lucide="folder-archive" class="w-4 h-4"></i>
+                            <span>Tải gói .ZIP</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Overall Batch Progress Bar -->
+                <div id="batchProgressCard" class="hidden bg-gray-900/95 border border-purple-500/40 rounded-2xl p-4 shadow-lg">
+                    <div class="flex items-center justify-between text-xs mb-2">
+                        <span id="batchProgressText" class="text-purple-300 font-semibold flex items-center gap-2">
+                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                            Đang nâng cấp ảnh...
+                        </span>
+                        <span id="batchProgressCount" class="text-white font-bold">0/0 (0%)</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div id="batchProgressBar" class="h-full bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-400 transition-all duration-200" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Image Queue List -->
+                <div id="queueContainer" class="flex flex-col gap-3">
+                    <div id="emptyQueueState" class="bg-gray-900/30 border border-gray-800/70 rounded-3xl p-8 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
+                        <i data-lucide="images" class="w-8 h-8 text-gray-600"></i>
+                        <p class="font-medium text-gray-300">Chưa có ảnh nào trong danh sách</p>
+                        <p class="text-xs text-gray-500">Hãy chạm vào ô phía trên hoặc kéo thả ảnh vào để chọn mức Upscale 2X, 3X, 4X hoặc 8K.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: 2X 3X 4X 8K Controls & Settings (5 cols) -->
+            <div class="lg:col-span-5 bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl sticky top-6 flex flex-col gap-5">
+                
+                <!-- 1. CHỌN ĐỘ PHÂN GIẢI UPSCALE: 2X, 3X, 4X, 8K (HIỂN THỊ CỐ ĐỊNH TRỰC TIẾP TRONG HTML) -->
+                <div class="bg-gray-950/90 border border-purple-500/30 rounded-2xl p-4 shadow-inner">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="maximize-2" class="w-4 h-4 text-purple-400"></i>
+                            Chọn mức độ Upscale (Độ phân giải):
+                        </label>
+                        <span id="activeScaleBadge" class="text-xs font-extrabold px-2.5 py-0.5 rounded-lg bg-purple-600 text-white">
+                            Đang chọn: 2X
+                        </span>
+                    </div>
+
+                    <!-- 4 Nút 2X, 3X, 4X, 8K được khai báo trực tiếp trong HTML để không bao giờ mất -->
+                    <div id="scaleContainer" class="grid grid-cols-4 gap-2.5">
+                        <button type="button" data-scale="2" onclick="selectScale(2)" class="scale-btn scale-btn-active p-3 rounded-xl border border-gray-700 bg-gray-900 text-center transition-all cursor-pointer flex flex-col items-center justify-center">
+                            <span class="text-lg font-extrabold tracking-tight">2X</span>
+                            <span id="scale-sub-2" class="text-[10px] opacity-90 mt-0.5 font-medium truncate max-w-full">Gấp 2 lần</span>
+                        </button>
+                        <button type="button" data-scale="3" onclick="selectScale(3)" class="scale-btn p-3 rounded-xl border border-gray-700 bg-gray-900 hover:border-purple-400/60 text-gray-200 text-center transition-all cursor-pointer flex flex-col items-center justify-center">
+                            <span class="text-lg font-extrabold tracking-tight">3X</span>
+                            <span id="scale-sub-3" class="text-[10px] opacity-80 mt-0.5 font-medium truncate max-w-full">Gấp 3 lần</span>
+                        </button>
+                        <button type="button" data-scale="4" onclick="selectScale(4)" class="scale-btn p-3 rounded-xl border border-gray-700 bg-gray-900 hover:border-purple-400/60 text-gray-200 text-center transition-all cursor-pointer flex flex-col items-center justify-center">
+                            <span class="text-lg font-extrabold tracking-tight">4X</span>
+                            <span id="scale-sub-4" class="text-[10px] opacity-80 mt-0.5 font-medium truncate max-w-full">Gấp 4 lần</span>
+                        </button>
+                        <button type="button" data-scale="8" onclick="selectScale(8)" class="scale-btn p-3 rounded-xl border border-gray-700 bg-gray-900 hover:border-purple-400/60 text-gray-200 text-center transition-all cursor-pointer flex flex-col items-center justify-center">
+                            <span class="text-lg font-extrabold tracking-tight">8K</span>
+                            <span id="scale-sub-8" class="text-[10px] opacity-80 mt-0.5 font-medium truncate max-w-full">Siêu nét 8K</span>
+                        </button>
+                    </div>
+
+                    <!-- Bảng tóm tắt kích thước Trước -> Sau trực tiếp -->
+                    <div id="liveResolutionBox" class="mt-3 pt-3 border-t border-gray-800/90 flex items-center justify-between text-xs">
+                        <span class="text-gray-400">Kích thước đầu ra dự kiến:</span>
+                        <span id="liveResolutionText" class="font-bold text-emerald-400">Tự động nhân 2X kích thước ảnh gốc</span>
+                    </div>
+                </div>
+
+                <!-- Nút Bắt đầu Nâng cấp Nổi bật Ngay Dưới Mục Chọn 2X/3X/4X/8K -->
+                <div class="flex flex-col gap-2">
+                    <button id="btnProcessAll" type="button" disabled class="w-full py-4 rounded-2xl font-extrabold text-base bg-gray-800 text-gray-500 transition-all flex items-center justify-center gap-2 shadow-lg">
+                        <i data-lucide="zap" id="btnProcessIcon" class="w-5 h-5"></i>
+                        <span id="btnText">Chọn ảnh để nâng cấp 2X</span>
+                        <i data-lucide="loader-2" id="btnLoader" class="w-5 h-5 hidden animate-spin"></i>
+                    </button>
+                    <button id="btnCancelBatch" type="button" class="hidden w-full py-2.5 rounded-xl font-semibold bg-red-950/60 hover:bg-red-900/70 text-red-300 border border-red-800/50 text-xs transition-all">
+                        Dừng xử lý hàng loạt
+                    </button>
+                </div>
+
+                <!-- 2. Tinh chỉnh Làm sắc nét & Chất lượng Hình ảnh -->
+                <div class="space-y-4 bg-gray-950/60 p-4 rounded-2xl border border-gray-800/80">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Làm nét & Tăng cường chi tiết</span>
+                        <button id="btnResetSettings" type="button" class="text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors">
+                            Đặt lại mặc định
+                        </button>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1.5">
+                            <label for="sharpSlider" class="font-medium text-gray-200">Độ sắc nét (Sharpening):</label>
+                            <span class="text-purple-400 font-bold"><span id="sharpVal">50</span>%</span>
+                        </div>
+                        <input type="range" id="sharpSlider" min="0" max="100" value="50" class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <span>Mềm (0%)</span>
+                            <span>Chuẩn (50%)</span>
+                            <span>Siêu sắc nét (100%)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1.5">
+                            <label for="claritySlider" class="font-medium text-gray-200">Độ trong trẻo (Micro-Contrast):</label>
+                            <span class="text-purple-400 font-bold"><span id="clarityVal">25</span>%</span>
+                        </div>
+                        <input type="range" id="claritySlider" min="0" max="100" value="25" class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider-thumb">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1.5">
+                            <label for="denoiseSlider" class="font-medium text-gray-200">Khử nhiễu mịn nền (Denoise):</label>
+                            <span class="text-purple-400 font-bold"><span id="denoiseVal">15</span>%</span>
+                        </div>
+                        <input type="range" id="denoiseSlider" min="0" max="100" value="15" class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider-thumb">
+                    </div>
+                </div>
+
+                <!-- 3. Quy tắc Đặt tên File khi tải về (Ký tự số đứng đầu + Tên ảnh gốc, KHÔNG thêm chữ upscale) -->
+                <div class="bg-gray-950/75 p-4 rounded-2xl border border-gray-800/80 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label for="namingRuleSelect" class="text-sm font-bold text-gray-200 flex items-center gap-1.5">
+                            <i data-lucide="file-signature" class="w-4 h-4 text-emerald-400"></i>
+                            Tên ảnh tải về (Số đứng đầu + Tên gốc)
+                        </label>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
+                            Không chữ upscale
+                        </span>
+                    </div>
+
+                    <select id="namingRuleSelect" class="w-full bg-gray-900 text-white text-xs md:text-sm px-3 py-2.5 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none">
+                        <option value="prefix_underscore" selected>Số_ + Tên gốc (Mặc định - VD: 1_anh.jpg)</option>
+                        <option value="prefix_dash">Số- + Tên gốc (VD: 1-anh.jpg)</option>
+                        <option value="prefix_bracket">(Số) + Tên gốc (VD: (1) anh.jpg)</option>
+                        <option value="prefix_sequence">Số thứ tự tăng dần_ + Tên gốc (1_anh, 2_anh...)</option>
+                        <option value="prefix_sequence_pad">Số thứ tự 01_ + Tên gốc (01_anh, 02_anh...)</option>
+                        <option value="prefix_custom">Tùy chỉnh ký tự đầu + Tên gốc (Ghép trực tiếp)</option>
+                        <option value="suffix_underscore">Tên gốc + _Số ở cuối (VD: anh_1.jpg)</option>
+                        <option value="exact">Giữ nguyên 100% tên gốc (VD: anh.jpg)</option>
+                    </select>
+
+                    <div id="customNumWrapper" class="flex items-center justify-between gap-3 pt-1">
+                        <span id="customNumLabel" class="text-xs text-gray-400">Ký tự số đứng đầu phân biệt:</span>
+                        <input type="text" id="customNumberInput" value="1" maxlength="15" placeholder="VD: 1, 2, 01" class="w-28 bg-gray-900 text-center text-white text-xs font-bold px-2.5 py-1.5 rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div class="text-xs bg-gray-900 px-3 py-2 rounded-xl border border-gray-800 flex items-center justify-between gap-2">
+                        <span class="text-gray-400 shrink-0">Xem trước tên tải về:</span>
+                        <div class="flex items-center gap-1.5 truncate">
+                            <span id="sampleOrigName" class="text-gray-500 truncate">anh_goc.jpg</span>
+                            <i data-lucide="arrow-right" class="w-3 h-3 text-gray-600 shrink-0"></i>
+                            <code id="filenamePreview" class="text-emerald-400 font-bold truncate">1_anh_goc.jpg</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Định dạng xuất & Tự động xử lý -->
+                <div class="space-y-3">
+                    <div>
+                        <label for="formatSelect" class="block text-xs font-semibold text-gray-300 mb-1.5">Định dạng ảnh xuất ra (Chất lượng tối đa 100%):</label>
+                        <select id="formatSelect" class="w-full bg-gray-950 text-white text-xs md:text-sm px-3.5 py-2.5 rounded-xl border border-gray-800 focus:border-purple-500 focus:outline-none">
+                            <option value="original" selected>Giữ nguyên định dạng ảnh gốc (Chất lượng 100%)</option>
+                            <option value="image/png">PNG Lossless (.png - Không nén)</option>
+                            <option value="image/jpeg">JPG Chất lượng tối đa 100% (.jpg)</option>
+                            <option value="image/webp">WebP Siêu nét 100% (.webp)</option>
+                        </select>
+                    </div>
+
+                    <label class="flex items-center justify-between gap-3 bg-gray-950/60 border border-gray-800 rounded-xl px-3.5 py-2.5 cursor-pointer hover:border-purple-500/40 transition-all select-none">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="wand-2" class="w-4 h-4 text-purple-400 shrink-0"></i>
+                            <div>
+                                <div class="text-xs font-semibold text-gray-200">Tự động nâng cấp ngay khi chọn/thả ảnh</div>
+                                <div class="text-[10px] text-gray-500">Tắt mặc định để bạn tùy ý chọn 2X, 3X, 4X, 8K trước</div>
+                            </div>
+                        </div>
+                        <input type="checkbox" id="autoProcessToggle" class="w-4 h-4 accent-purple-500 rounded cursor-pointer" />
+                    </label>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal So sánh Trước / Sau (Interactive Split Slider + 1x/2x/4x Zoom) -->
+    <div id="compareModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-3 md:p-6">
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-5xl w-full p-4 md:p-6 flex flex-col max-h-[95vh] shadow-2xl">
+            
+            <!-- Modal Header -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-gray-800">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h2 id="modalTitle" class="text-base md:text-xl font-bold text-white truncate max-w-md">
+                            Kết quả nâng cấp
+                        </h2>
+                        <span id="modalScaleTag" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-purple-600 text-white">2X</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Chạm và kéo thanh trượt trên ảnh để đối chiếu độ nét Trước và Sau khi Upscale
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btnToggleZoom" type="button" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-200 flex items-center gap-1.5 border border-gray-700">
+                        <i data-lucide="zoom-in" class="w-4 h-4 text-purple-400"></i>
+                        <span id="zoomLabel">Zoom: 100%</span>
+                    </button>
+                    <button id="btnCloseModal" type="button" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Comparison Viewport -->
+            <div id="compareViewport" class="relative flex-1 my-3.5 rounded-2xl overflow-hidden border border-gray-800 bg-checkerboard flex items-center justify-center select-none min-h-[300px] max-h-[60vh] cursor-ew-resize" style="touch-action: none;">
+                
+                <!-- Wrapper giữ đúng tỷ lệ ảnh -->
+                <div id="compareStage" class="relative inline-block max-w-full max-h-[58vh] transition-transform duration-200">
+                    <!-- Ảnh Sau nâng cấp (Nằm dưới full width) -->
+                    <img id="modalResultImg" class="block max-w-full max-h-[58vh] w-auto h-auto object-contain pointer-events-none" alt="Sau nâng cấp" />
+                    
+                    <!-- Ảnh Trước nâng cấp (Dùng clip-path để cắt theo thanh trượt) -->
+                    <img id="modalOrigImg" class="absolute inset-0 w-full h-full object-contain pointer-events-none" style="clip-path: inset(0 50% 0 0); image-rendering: pixelated;" alt="Ảnh gốc" />
+
+                    <!-- Thanh chia đôi (Divider) -->
+                    <div id="compareDivider" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(0,0,0,0.9)] pointer-events-none" style="left: 50%;">
+                        <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-purple-600 border-2 border-white shadow-lg flex items-center justify-center">
+                            <i data-lucide="move-horizontal" class="w-4 h-4 text-white"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nhãn Trước / Sau -->
+                <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-xs font-semibold text-gray-200 border border-white/10 pointer-events-none">
+                    Gốc: <b id="modalOrigDim" class="text-white">0×0</b>
+                </span>
+                <span class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-purple-900/85 backdrop-blur-md text-xs font-semibold text-purple-100 border border-purple-400/30 pointer-events-none">
+                    Sau Upscale: <b id="modalNewDim" class="text-emerald-300">0×0</b>
+                </span>
+            </div>
+
+            <!-- Thanh điều khiển kéo phụ trợ -->
+            <div class="flex items-center gap-3 mb-3 px-2">
+                <span class="text-xs text-gray-400 shrink-0">Ảnh gốc</span>
+                <input type="range" id="compareRange" min="0" max="100" value="50" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer slider-thumb" />
+                <span class="text-xs text-purple-400 font-semibold shrink-0">Sau Upscale</span>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-gray-800">
+                <div class="text-xs text-gray-400 flex items-center gap-2">
+                    <span>Tên file khi lưu:</span>
+                    <code id="modalFilenamePreview" class="px-2.5 py-1 rounded-lg bg-gray-800 text-emerald-300 font-bold">1_anh.jpg</code>
+                </div>
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                    <button id="btnModalDownload" type="button" class="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Lưu Ảnh Này</span>
+                    </button>
+                    <button id="btnCloseModalBottom" type="button" class="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-sm font-medium text-gray-300">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Khởi tạo Lucide Icons
+        lucide.createIcons();
+
+        // =========================================================================
+        // 1. TRẠNG THÁI ỨNG DỤNG & CẤU HÌNH ĐỘ PHÂN GIẢI (2X, 3X, 4X, 8K)
+        // =========================================================================
+        const MAX_SAFE_DIMENSION = 16384; // Giới hạn an toàn tối đa của HTML5 Canvas
+        const SCALE_CONFIG = {
+            2: { id: 2, label: '2X', defaultSub: 'Gấp 2 lần' },
+            3: { id: 3, label: '3X', defaultSub: 'Gấp 3 lần' },
+            4: { id: 4, label: '4X', defaultSub: 'Gấp 4 lần' },
+            8: { id: 8, label: '8K', defaultSub: 'Siêu nét 8K' }
+        };
+
+        let currentScale = 2;
+        let imageQueue = [];
+        let isBatchProcessing = false;
+        let cancelBatchRequested = false;
+        let activeModalItemId = null;
+        let currentZoomLevel = 1; // 1 -> 2 -> 4
+
+        // =========================================================================
+        // 2. HỆ THỐNG THÔNG BÁO TOAST (KHÔNG DÙNG ALERT/CONFIRM)
+        // =========================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const colors = {
+                success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+                error: 'bg-red-950/95 border-red-500/50 text-red-200',
+                warning: 'bg-amber-950/95 border-amber-500/50 text-amber-200',
+                info: 'bg-gray-900/95 border-purple-500/50 text-purple-200'
+            };
+            const icons = {
+                success: 'check-circle-2',
+                error: 'alert-triangle',
+                warning: 'alert-circle',
+                info: 'sparkles'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-md text-xs md:text-sm font-medium transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.innerHTML = `
+                <i data-lucide="${icons[type] || 'sparkles'}" class="w-4 h-4 shrink-0"></i>
+                <span class="flex-1">${message}</span>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // =========================================================================
+        // 3. TÍNH TOÁN ĐỘ PHÂN GIẢI 2X, 3X, 4X, 8K & CẬP NHẬT NÚT BẤM
+        // =========================================================================
+        function calculateTargetDimensions(origW, origH, scaleId) {
+            let targetW, targetH;
+
+            if (scaleId === 8) {
+                // Chế độ 8K Ultra HD: Cạnh dài nhất đạt tối thiểu 7680px (hoặc nhân 4x nếu ảnh gốc đã lớn)
+                const longestEdge = Math.max(origW, origH, 1);
+                const factor = Math.max(2, 7680 / longestEdge);
+                targetW = Math.round(origW * factor);
+                targetH = Math.round(origH * factor);
+            } else {
+                targetW = Math.round(origW * scaleId);
+                targetH = Math.round(origH * scaleId);
+            }
+
+            // Bảo vệ giới hạn phần cứng Canvas để trình duyệt không bị tràn bộ nhớ
+            let clamped = false;
+            if (targetW > MAX_SAFE_DIMENSION || targetH > MAX_SAFE_DIMENSION) {
+                const ratio = Math.min(MAX_SAFE_DIMENSION / targetW, MAX_SAFE_DIMENSION / targetH);
+                targetW = Math.round(targetW * ratio);
+                targetH = Math.round(targetH * ratio);
+                clamped = true;
+            }
+
+            return { width: targetW, height: targetH, clamped, scaleLabel: SCALE_CONFIG[scaleId]?.label || `${scaleId}X` };
+        }
+
+        // Hàm chọn mức Upscale 2X, 3X, 4X, 8K
+        window.selectScale = function(scaleId) {
+            if (isBatchProcessing) {
+                showToast('Đang xử lý ảnh, vui lòng đợi hoàn tất hoặc bấm Dừng.', 'warning');
+                return;
+            }
+            currentScale = scaleId;
+
+            // Cập nhật trạng thái nổi bật của 4 nút 2X, 3X, 4X, 8K
+            const buttons = document.querySelectorAll('#scaleContainer .scale-btn');
+            buttons.forEach(btn => {
+                const btnScale = parseInt(btn.getAttribute('data-scale'), 10);
+                if (btnScale === currentScale) {
+                    btn.classList.add('scale-btn-active');
+                } else {
+                    btn.classList.remove('scale-btn-active');
+                }
+            });
+
+            const modeLabel = SCALE_CONFIG[currentScale]?.label || `${currentScale}X`;
+            document.getElementById('activeScaleBadge').innerText = `Đang chọn: ${modeLabel}`;
+            document.getElementById('statScaleMode').innerText = `${modeLabel} Upscale`;
+
+            updateScaleButtonSubtitles();
+            renderQueue();
+            updateHeaderStats();
+        };
+
+        // Cập nhật độ phân giải dự kiến ngay trên từng nút 2X, 3X, 4X, 8K
+        function updateScaleButtonSubtitles() {
+            const liveText = document.getElementById('liveResolutionText');
+            if (imageQueue.length > 0) {
+                const first = imageQueue[0];
+                [2, 3, 4, 8].forEach(sId => {
+                    const dim = calculateTargetDimensions(first.origWidth, first.origHeight, sId);
+                    const subEl = document.getElementById(`scale-sub-${sId}`);
+                    if (subEl) {
+                        subEl.innerText = `${dim.width}×${dim.height}`;
+                    }
+                });
+                const activeDim = calculateTargetDimensions(first.origWidth, first.origHeight, currentScale);
+                liveText.innerHTML = `${first.origWidth}×${first.origHeight} <span class="text-gray-400">→</span> <span class="text-emerald-400 font-extrabold">${activeDim.width}×${activeDim.height} px (${SCALE_CONFIG[currentScale].label})</span>`;
+            } else {
+                [2, 3, 4, 8].forEach(sId => {
+                    const subEl = document.getElementById(`scale-sub-${sId}`);
+                    if (subEl) {
+                        subEl.innerText = SCALE_CONFIG[sId].defaultSub;
+                    }
+                });
+                liveText.innerText = currentScale === 8
+                    ? 'Đưa cạnh dài nhất lên chuẩn 8K (7680px)'
+                    : `Nhân ${currentScale}X chiều rộng và chiều cao ảnh gốc`;
+            }
+        }
+
+        // =========================================================================
+        // 4. QUY TẮC ĐẶT TÊN FILE (KÝ TỰ SỐ ĐỨNG ĐẦU + TÊN GỐC, KHÔNG CHỮ UPSCALE)
+        // =========================================================================
+        function splitFilename(fullFilename) {
+            const lastDot = fullFilename.lastIndexOf('.');
+            if (lastDot <= 0) {
+                return { baseName: fullFilename, ext: 'jpg' };
+            }
+            let baseName = fullFilename.substring(0, lastDot);
+            const ext = fullFilename.substring(lastDot + 1).toLowerCase();
+            return { baseName, ext };
+        }
+
+        function getTargetMimeType(item) {
+            const formatVal = document.getElementById('formatSelect').value;
+            if (formatVal !== 'original') return formatVal;
+            const origType = item?.file?.type;
+            if (origType === 'image/png' || origType === 'image/webp' || origType === 'image/jpeg') {
+                return origType;
+            }
+            return 'image/png'; // Mặc định lossless nếu định dạng lạ
+        }
+
+        function getExtensionForItem(item) {
+            const formatVal = document.getElementById('formatSelect').value;
+            const { ext } = splitFilename(item ? item.file.name : 'anh_goc.jpg');
+            if (formatVal === 'original') {
+                return ext || 'jpg';
+            }
+            if (formatVal === 'image/png') return 'png';
+            if (formatVal === 'image/webp') return 'webp';
+            return 'jpg';
+        }
+
+        function buildOutputFilename(item, index = 0) {
+            const rawName = item ? item.file.name : 'anh_goc.jpg';
+            const { baseName } = splitFilename(rawName);
+            const ext = getExtensionForItem(item);
+            const rule = document.getElementById('namingRuleSelect').value;
+            const customVal = document.getElementById('customNumberInput').value.trim() || '1';
+
+            let finalBase = baseName;
+            switch (rule) {
+                case 'prefix_underscore':
+                    finalBase = `${customVal}_${baseName}`;
+                    break;
+                case 'prefix_dash':
+                    finalBase = `${customVal}-${baseName}`;
+                    break;
+                case 'prefix_bracket':
+                    finalBase = `(${customVal}) ${baseName}`;
+                    break;
+                case 'prefix_sequence':
+                    finalBase = `${index + 1}_${baseName}`;
+                    break;
+                case 'prefix_sequence_pad':
+                    finalBase = `${String(index + 1).padStart(2, '0')}_${baseName}`;
+                    break;
+                case 'prefix_custom':
+                    finalBase = `${customVal}${baseName}`;
+                    break;
+                case 'suffix_underscore':
+                    finalBase = `${baseName}_${customVal}`;
+                    break;
+                case 'exact':
+                    finalBase = baseName;
+                    break;
+                default:
+                    finalBase = `${customVal}_${baseName}`;
+            }
+
+            return `${finalBase}.${ext}`;
+        }
+
+        function updateFilenamePreviews() {
+            const rule = document.getElementById('namingRuleSelect').value;
+            const wrapper = document.getElementById('customNumWrapper');
+            const label = document.getElementById('customNumLabel');
+
+            if (rule === 'prefix_sequence' || rule === 'prefix_sequence_pad' || rule === 'exact') {
+                wrapper.classList.add('hidden');
+            } else {
+                wrapper.classList.remove('hidden');
+                label.innerText = rule === 'suffix_underscore' ? 'Ký tự số ở cuối:' : 'Ký tự số đứng đầu:';
+            }
+
+            const sampleItem = imageQueue.length > 0 ? imageQueue[0] : null;
+            document.getElementById('sampleOrigName').innerText = sampleItem ? sampleItem.file.name : 'anh_goc.jpg';
+            document.getElementById('filenamePreview').innerText = buildOutputFilename(sampleItem, 0);
+
+            // Cập nhật tên file trực tiếp trên từng thẻ trong hàng đợi
+            imageQueue.forEach((item, idx) => {
+                const outEl = document.getElementById(`outname-${item.id}`);
+                if (outEl) {
+                    const newName = buildOutputFilename(item, idx);
+                    outEl.innerText = newName;
+                    outEl.title = newName;
+                }
+            });
+
+            if (activeModalItemId) {
+                const idx = imageQueue.findIndex(i => i.id === activeModalItemId);
+                if (idx !== -1) {
+                    document.getElementById('modalFilenamePreview').innerText = buildOutputFilename(imageQueue[idx], idx);
+                }
+            }
+        }
+
+        // =========================================================================
+        // 5. WEB WORKER & THUẬT TOÁN MULTI-STEP UPSCALING + EDGE-AWARE SHARPENING
+        // =========================================================================
+        const workerCode = `
+            self.onmessage = function(e) {
+                const { imageData, width, height, sharpenIntensity, clarityIntensity, denoiseIntensity } = e.data;
+                const src = imageData.data;
+                const dst = new Uint8ClampedArray(src.length);
+
+                const sharpAmount = (sharpenIntensity / 100) * 1.35;
+                const clarityAmount = (clarityIntensity / 100) * 0.35;
+                const denoiseThreshold = (denoiseIntensity / 100) * 18;
+                const contrastFactor = 1 + clarityAmount;
+
+                const reportStep = Math.max(1, Math.floor(height / 10));
+
+                for (let y = 0; y < height; y++) {
+                    if (y % reportStep === 0) {
+                        self.postMessage({ type: 'progress', progress: Math.min(95, Math.round((y / height) * 90) + 5) });
+                    }
+                    const yUp = y > 0 ? y - 1 : 0;
+                    const yDown = y < height - 1 ? y + 1 : height - 1;
+
+                    for (let x = 0; x < width; x++) {
+                        const xLeft = x > 0 ? x - 1 : 0;
+                        const xRight = x < width - 1 ? x + 1 : width - 1;
+
+                        const idx = (y * width + x) * 4;
+                        const idxUp = (yUp * width + x) * 4;
+                        const idxDown = (yDown * width + x) * 4;
+                        const idxLeft = (y * width + xLeft) * 4;
+                        const idxRight = (y * width + xRight) * 4;
+                        const idxUL = (yUp * width + xLeft) * 4;
+                        const idxUR = (yUp * width + xRight) * 4;
+                        const idxDL = (yDown * width + xLeft) * 4;
+                        const idxDR = (yDown * width + xRight) * 4;
+
+                        for (let c = 0; c < 3; c++) {
+                            const center = src[idx + c];
+                            // 3x3 Gaussian blur estimate
+                            const neighbors = (
+                                (src[idxUp + c] + src[idxDown + c] + src[idxLeft + c] + src[idxRight + c]) * 2 +
+                                (src[idxUL + c] + src[idxUR + c] + src[idxDL + c] + src[idxDR + c]) +
+                                center * 4
+                            ) / 16;
+
+                            const diff = center - neighbors;
+                            let val = center;
+
+                            // Edge-Aware Unsharp Mask & Denoise
+                            if (Math.abs(diff) > denoiseThreshold) {
+                                val = center + diff * sharpAmount * 2.2;
+                            } else if (denoiseIntensity > 0) {
+                                val = center * 0.65 + neighbors * 0.35;
+                            }
+
+                            // Micro-Contrast (Clarity) S-curve
+                            if (clarityIntensity > 0) {
+                                val = ((val / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                            }
+
+                            dst[idx + c] = val < 0 ? 0 : (val > 255 ? 255 : val);
+                        }
+                        // Giữ nguyên kênh Alpha trong suốt
+                        dst[idx + 3] = src[idx + 3];
+                    }
+                }
+
+                const outData = new ImageData(dst, width, height);
+                self.postMessage({ type: 'done', imageData: outData }, [outData.data.buffer]);
+            };
+        `;
+
+        let workerUrl = null;
+        try {
+            const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+            workerUrl = URL.createObjectURL(workerBlob);
+        } catch (err) {
+            workerUrl = null;
+        }
+
+        // Fallback xử lý trực tiếp nếu môi trường chặn Web Worker
+        async function processPixelsMainThread(imageData, width, height, sharpenIntensity, clarityIntensity, denoiseIntensity, onProgress) {
+            const src = imageData.data;
+            const dst = new Uint8ClampedArray(src.length);
+            const sharpAmount = (sharpenIntensity / 100) * 1.35;
+            const clarityAmount = (clarityIntensity / 100) * 0.35;
+            const denoiseThreshold = (denoiseIntensity / 100) * 18;
+            const contrastFactor = 1 + clarityAmount;
+            const chunkRows = 120;
+
+            for (let startY = 0; startY < height; startY += chunkRows) {
+                const endY = Math.min(height, startY + chunkRows);
+                for (let y = startY; y < endY; y++) {
+                    const yUp = y > 0 ? y - 1 : 0;
+                    const yDown = y < height - 1 ? y + 1 : height - 1;
+                    for (let x = 0; x < width; x++) {
+                        const xLeft = x > 0 ? x - 1 : 0;
+                        const xRight = x < width - 1 ? x + 1 : width - 1;
+                        const idx = (y * width + x) * 4;
+                        const idxUp = (yUp * width + x) * 4;
+                        const idxDown = (yDown * width + x) * 4;
+                        const idxLeft = (y * width + xLeft) * 4;
+                        const idxRight = (y * width + xRight) * 4;
+
+                        for (let c = 0; c < 3; c++) {
+                            const center = src[idx + c];
+                            const neighbors = (src[idxUp + c] + src[idxDown + c] + src[idxLeft + c] + src[idxRight + c] + center) / 5;
+                            const diff = center - neighbors;
+                            let val = center;
+                            if (Math.abs(diff) > denoiseThreshold) {
+                                val = center + diff * sharpAmount * 2.2;
+                            } else if (denoiseIntensity > 0) {
+                                val = center * 0.7 + neighbors * 0.3;
+                            }
+                            if (clarityIntensity > 0) {
+                                val = ((val / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                            }
+                            dst[idx + c] = val < 0 ? 0 : (val > 255 ? 255 : val);
+                        }
+                        dst[idx + 3] = src[idx + 3];
+                    }
+                }
+                if (onProgress) onProgress(Math.min(95, Math.round((endY / height) * 90) + 5));
+                await new Promise(r => setTimeout(r, 0));
+            }
+            return new ImageData(dst, width, height);
+        }
+
+        /**
+         * Phóng đại đa bước (Multi-Step Progressive 2x Scaling)
+         * Giúp ảnh phóng lên 2X, 3X, 4X, 8K mượt mà, không bị vỡ hạt răng cưa
+         */
+        function multiStepHighQualityDraw(imgElement, targetWidth, targetHeight) {
+            let curW = imgElement.naturalWidth || imgElement.width;
+            let curH = imgElement.naturalHeight || imgElement.height;
+
+            let workCanvas = document.createElement('canvas');
+            workCanvas.width = curW;
+            workCanvas.height = curH;
+            let workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
+            workCtx.imageSmoothingEnabled = true;
+            workCtx.imageSmoothingQuality = 'high';
+            workCtx.drawImage(imgElement, 0, 0, curW, curH);
+
+            while (curW * 2 < targetWidth && curH * 2 < targetHeight) {
+                const nextW = curW * 2;
+                const nextH = curH * 2;
+                const stepCanvas = document.createElement('canvas');
+                stepCanvas.width = nextW;
+                stepCanvas.height = nextH;
+                const stepCtx = stepCanvas.getContext('2d');
+                stepCtx.imageSmoothingEnabled = true;
+                stepCtx.imageSmoothingQuality = 'high';
+                stepCtx.drawImage(workCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+
+                workCanvas.width = 1;
+                workCanvas.height = 1;
+                workCanvas = stepCanvas;
+                curW = nextW;
+                curH = nextH;
+            }
+
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = targetWidth;
+            finalCanvas.height = targetHeight;
+            const finalCtx = finalCanvas.getContext('2d', { willReadFrequently: true });
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(workCanvas, 0, 0, curW, curH, 0, 0, targetWidth, targetHeight);
+
+            workCanvas.width = 1;
+            workCanvas.height = 1;
+
+            return { canvas: finalCanvas, ctx: finalCtx };
+        }
+
+        // =========================================================================
+        // 6. SỰ KIỆN SLIDER & CÀI ĐẶT
+        // =========================================================================
+        document.getElementById('sharpSlider').oninput = (e) => {
+            document.getElementById('sharpVal').innerText = e.target.value;
+            updateHeaderStats();
+        };
+        document.getElementById('claritySlider').oninput = (e) => {
+            document.getElementById('clarityVal').innerText = e.target.value;
+            updateHeaderStats();
+        };
+        document.getElementById('denoiseSlider').oninput = (e) => {
+            document.getElementById('denoiseVal').innerText = e.target.value;
+            updateHeaderStats();
+        };
+
+        document.getElementById('btnResetSettings').onclick = () => {
+            document.getElementById('sharpSlider').value = 50;
+            document.getElementById('sharpVal').innerText = '50';
+            document.getElementById('claritySlider').value = 25;
+            document.getElementById('clarityVal').innerText = '25';
+            document.getElementById('denoiseSlider').value = 15;
+            document.getElementById('denoiseVal').innerText = '15';
+            document.getElementById('formatSelect').value = 'original';
+            document.getElementById('namingRuleSelect').value = 'prefix_underscore';
+            document.getElementById('customNumberInput').value = '1';
+            selectScale(2);
+            updateFilenamePreviews();
+            showToast('Đã khôi phục cấu hình mặc định (2X & Số đứng đầu tên ảnh).', 'info');
+        };
+
+        document.getElementById('namingRuleSelect').onchange = updateFilenamePreviews;
+        document.getElementById('customNumberInput').oninput = updateFilenamePreviews;
+        document.getElementById('formatSelect').onchange = async () => {
+            updateFilenamePreviews();
+            for (const item of imageQueue) {
+                if (item.status === 'done' && item.resultCanvas) {
+                    await exportCanvasToHighQualityBlob(item);
+                }
+            }
+            renderQueue();
+        };
+
+        // =========================================================================
+        // 7. CHẠM TRỰC TIẾP & KÉO THẢ ẢNH (UPLOAD & BATCH QUEUE)
+        // =========================================================================
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const addMoreInput = document.getElementById('addMoreInput');
+        const globalDropOverlay = document.getElementById('globalDropOverlay');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFilesAdded(e.target.files);
+                fileInput.value = '';
+            }
+        });
+
+        addMoreInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFilesAdded(e.target.files);
+                addMoreInput.value = '';
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            uploadArea.addEventListener(evt, (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(evt => {
+            uploadArea.addEventListener(evt, () => {
+                uploadArea.classList.remove('drag-active');
+            });
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            globalDropOverlay.classList.add('hidden');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFilesAdded(e.dataTransfer.files);
+            }
+        });
+
+        // Kéo thả vào bất kỳ đâu trên màn hình
+        let dragCounter = 0;
+        window.addEventListener('dragenter', (e) => {
+            if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+                e.preventDefault();
+                dragCounter++;
+                globalDropOverlay.classList.remove('hidden');
+            }
+        });
+        window.addEventListener('dragover', (e) => {
+            if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('dragleave', () => {
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                globalDropOverlay.classList.add('hidden');
+            }
+        });
+        window.addEventListener('drop', (e) => {
+            dragCounter = 0;
+            globalDropOverlay.classList.add('hidden');
+            uploadArea.classList.remove('drag-active');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                e.preventDefault();
+                handleFilesAdded(e.dataTransfer.files);
+            }
+        });
+
+        // Dán ảnh Ctrl+V
+        window.addEventListener('paste', (e) => {
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                handleFilesAdded(e.clipboardData.files);
+            }
+        });
+
+        async function handleFilesAdded(fileList) {
+            const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+            if (files.length === 0) {
+                showToast('Vui lòng chọn hoặc kéo thả tệp hình ảnh hợp lệ (JPG, PNG, WebP).', 'warning');
+                return;
+            }
+
+            let addedCount = 0;
+            for (const file of files) {
+                const previewUrl = URL.createObjectURL(file);
+                try {
+                    const img = new Image();
+                    img.src = previewUrl;
+                    await img.decode();
+
+                    const item = {
+                        id: 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                        file,
+                        previewUrl,
+                        origWidth: img.naturalWidth || img.width,
+                        origHeight: img.naturalHeight || img.height,
+                        status: 'pending',
+                        processedScale: null,
+                        progress: 0,
+                        resultBlob: null,
+                        resultUrl: null,
+                        resultCanvas: null,
+                        outWidth: 0,
+                        outHeight: 0
+                    };
+                    imageQueue.push(item);
+                    addedCount++;
+                } catch (err) {
+                    URL.revokeObjectURL(previewUrl);
+                    showToast(`Không thể đọc ảnh "${file.name}".`, 'error');
+                }
+            }
+
+            updateScaleButtonSubtitles();
+            renderQueue();
+            updateFilenamePreviews();
+
+            if (addedCount > 0) {
+                showToast(`Đã thêm ${addedCount} ảnh. Chọn 2X, 3X, 4X hoặc 8K để nâng cấp!`, 'success');
+                const autoProcess = document.getElementById('autoProcessToggle')?.checked;
+                if (autoProcess && !isBatchProcessing) {
+                    document.getElementById('btnProcessAll').click();
+                }
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return '0 KB';
+            const mb = bytes / (1024 * 1024);
+            return mb >= 1 ? `${mb.toFixed(2)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
+        }
+
+        function updateHeaderStats() {
+            const total = imageQueue.length;
+            const done = imageQueue.filter(i => i.status === 'done').length;
+            const scaleLabel = SCALE_CONFIG[currentScale]?.label || `${currentScale}X`;
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statDone').innerText = done;
+
+            const toolbar = document.getElementById('batchToolbar');
+            const emptyState = document.getElementById('emptyQueueState');
+            const btnProcessAll = document.getElementById('btnProcessAll');
+            const btnDownloadAllInd = document.getElementById('btnDownloadAllIndividual');
+            const btnDownloadZip = document.getElementById('btnDownloadZip');
+
+            // Thu gọn nhẹ ô Upload khi đã có ảnh nhưng vẫn giữ nguyên khả năng chạm/thả trực tiếp
+            const uploadIconBox = document.getElementById('uploadIconBox');
+            const uploadBadges = document.getElementById('uploadBadges');
+            const uploadTitle = document.getElementById('uploadTitle');
+            if (total > 0) {
+                uploadArea.classList.remove('p-8', 'md:p-10');
+                uploadArea.classList.add('p-4', 'md:p-5');
+                uploadIconBox.classList.remove('w-16', 'h-16', 'mb-3.5');
+                uploadIconBox.classList.add('w-11', 'h-11', 'mb-2');
+                uploadTitle.innerText = 'Chạm hoặc Kéo thả thêm ảnh vào đây';
+                uploadBadges.classList.add('hidden');
+            } else {
+                uploadArea.classList.add('p-8', 'md:p-10');
+                uploadArea.classList.remove('p-4', 'md:p-5');
+                uploadIconBox.classList.add('w-16', 'h-16', 'mb-3.5');
+                uploadIconBox.classList.remove('w-11', 'h-11', 'mb-2');
+                uploadTitle.innerText = 'Chạm vào ô này để chọn ảnh hoặc Kéo thả trực tiếp';
+                uploadBadges.classList.remove('hidden');
+            }
+
+            if (total > 0) {
+                toolbar.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+                if (!isBatchProcessing) {
+                    btnProcessAll.disabled = false;
+                    btnProcessAll.className = "w-full py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 cursor-pointer active:scale-[0.99]";
+
+                    // Kiểm tra xem có ảnh nào chưa xử lý ở mức Scale hiện tại không
+                    const allDoneAtCurrentScale = imageQueue.every(i => i.status === 'done' && i.processedScale === currentScale);
+                    if (allDoneAtCurrentScale) {
+                        document.getElementById('btnText').innerText = total > 1
+                            ? `Nâng cấp lại ${scaleLabel} (${total} ảnh)`
+                            : `Nâng cấp lại với mức ${scaleLabel}`;
+                    } else if (done > 0) {
+                        document.getElementById('btnText').innerText = total > 1
+                            ? `Nâng cấp lên ${scaleLabel} (${total} ảnh)`
+                            : `Nâng cấp lên ${scaleLabel} ngay`;
+                    } else {
+                        document.getElementById('btnText').innerText = total > 1
+                            ? `Bắt đầu Upscale ${scaleLabel} (${total} ảnh)`
+                            : `Bắt đầu Upscale ${scaleLabel}`;
+                    }
+                }
+            } else {
+                toolbar.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                btnProcessAll.disabled = true;
+                btnProcessAll.className = "w-full py-4 rounded-2xl font-extrabold text-base bg-gray-800 text-gray-500 transition-all flex items-center justify-center gap-2";
+                document.getElementById('btnText').innerText = `Chọn ảnh để nâng cấp ${scaleLabel}`;
+            }
+
+            btnDownloadAllInd.disabled = done === 0 || isBatchProcessing;
+            btnDownloadZip.disabled = done === 0 || isBatchProcessing;
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('queueContainer');
+            Array.from(container.children).forEach(child => {
+                if (child.id !== 'emptyQueueState') child.remove();
+            });
+
+            imageQueue.forEach((item, index) => {
+                const target = calculateTargetDimensions(item.origWidth, item.origHeight, currentScale);
+                const isDoneCurrentScale = item.status === 'done' && item.processedScale === currentScale;
+                const dispOutW = isDoneCurrentScale ? item.outWidth : target.width;
+                const dispOutH = isDoneCurrentScale ? item.outHeight : target.height;
+                const dispScaleLabel = item.status === 'done' && item.processedScale
+                    ? SCALE_CONFIG[item.processedScale]?.label
+                    : target.scaleLabel;
+                const outFilename = buildOutputFilename(item, index);
+
+                let statusBadge = '';
+                if (item.status === 'pending') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-800 text-gray-300 border border-gray-700">Chờ Upscale ${target.scaleLabel}</span>`;
+                } else if (item.status === 'processing') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> ${item.progress}%</span>`;
+                } else if (item.status === 'done') {
+                    const needsReupscaleHint = item.processedScale !== currentScale
+                        ? `<span class="ml-1 text-amber-300 font-bold">(Đổi sang ${target.scaleLabel})</span>`
+                        : '';
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Đã xong ${dispScaleLabel} (${formatBytes(item.resultBlob?.size)}) ${needsReupscaleHint}</span>`;
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">Lỗi xử lý</span>`;
+                }
+
+                const card = document.createElement('div');
+                card.id = `card-${item.id}`;
+                card.className = `bg-gray-900/95 border ${item.status === 'done' ? 'border-emerald-500/35' : 'border-gray-800'} rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all hover:border-gray-700 shadow-md`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3.5 min-w-0 flex-1 w-full">
+                        <div class="relative w-16 h-16 rounded-xl overflow-hidden bg-checkerboard border border-gray-700 shrink-0 group cursor-pointer" onclick="openCompareModal('${item.id}')">
+                            <img src="${item.resultUrl || item.previewUrl}" class="w-full h-full object-cover" alt="${item.file.name}" />
+                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <i data-lucide="eye" class="w-5 h-5 text-white"></i>
+                            </div>
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-medium text-gray-400 truncate max-w-[160px]" title="${item.file.name}">${item.file.name}</span>
+                                <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-gray-600 shrink-0"></i>
+                                <code id="outname-${item.id}" class="text-xs font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded-md truncate max-w-[210px]" title="${outFilename}">${outFilename}</code>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-gray-400">
+                                <span>Gốc: <b class="text-gray-200">${item.origWidth}×${item.origHeight}</b></span>
+                                <i data-lucide="arrow-right" class="w-3 h-3 text-purple-400"></i>
+                                <span class="px-2 py-0.5 rounded bg-purple-950/70 border border-purple-500/30 text-purple-200 font-bold">
+                                    ${target.scaleLabel}: ${dispOutW}×${dispOutH} px
+                                </span>
+                            </div>
+
+                            <!-- Thanh tiến trình riêng của từng ảnh -->
+                            <div id="progwrap-${item.id}" class="${item.status === 'processing' ? 'block' : 'hidden'} w-full h-1.5 bg-gray-800 rounded-full overflow-hidden mt-2">
+                                <div id="progbar-${item.id}" class="h-full bg-purple-500 transition-all duration-150" style="width: ${item.progress}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto border-t sm:border-t-0 border-gray-800/80 pt-2.5 sm:pt-0">
+                        <div id="badge-${item.id}">${statusBadge}</div>
+
+                        <div class="flex items-center gap-1.5">
+                            ${item.status === 'done' ? `
+                                <button type="button" onclick="openCompareModal('${item.id}')" title="So sánh Trước / Sau" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-purple-300 border border-gray-700 transition-all">
+                                    <i data-lucide="split-square-horizontal" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" onclick="downloadSingleItem('${item.id}')" title="Tải ảnh này về máy" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                    <span>Lưu</span>
+                                </button>
+                            ` : ''}
+
+                            <button type="button" onclick="processSingleItemById('${item.id}')" ${isBatchProcessing ? 'disabled' : ''} title="Upscale ảnh này với mức ${target.scaleLabel}" class="px-2.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-xs font-bold flex items-center gap-1 disabled:opacity-40 transition-all">
+                                <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                                <span>${target.scaleLabel}</span>
+                            </button>
+
+                            <button type="button" onclick="removeQueueItem('${item.id}')" ${isBatchProcessing ? 'disabled' : ''} title="Xóa khỏi danh sách" class="p-2 rounded-xl bg-gray-800/70 hover:bg-red-950/80 hover:text-red-300 text-gray-400 border border-gray-800 disabled:opacity-40 transition-all">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateHeaderStats();
+            lucide.createIcons();
+        }
+
+        window.removeQueueItem = function(id) {
+            if (isBatchProcessing) return;
+            const idx = imageQueue.findIndex(i => i.id === id);
+            if (idx !== -1) {
+                const item = imageQueue[idx];
+                if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+                if (item.resultCanvas) {
+                    item.resultCanvas.width = 1;
+                    item.resultCanvas.height = 1;
+                }
+                imageQueue.splice(idx, 1);
+                updateScaleButtonSubtitles();
+                renderQueue();
+                updateFilenamePreviews();
+            }
+        };
+
+        document.getElementById('btnClearAll').onclick = () => {
+            if (isBatchProcessing) return;
+            imageQueue.forEach(item => {
+                if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+                if (item.resultCanvas) {
+                    item.resultCanvas.width = 1;
+                    item.resultCanvas.height = 1;
+                }
+            });
+            imageQueue = [];
+            updateScaleButtonSubtitles();
+            renderQueue();
+            updateFilenamePreviews();
+            showToast('Đã xóa toàn bộ danh sách ảnh.', 'info');
+        };
+
+        // =========================================================================
+        // 8. ENGINE XỬ LÝ NÂNG CẤP ẢNH CHẤT LƯỢNG 100% (2X, 3X, 4X, 8K)
+        // =========================================================================
+        async function exportCanvasToHighQualityBlob(item) {
+            const mimeType = getTargetMimeType(item);
+            const blob = await new Promise(resolve => item.resultCanvas.toBlob(resolve, mimeType, 1.0));
+            if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+            item.resultBlob = blob;
+            item.resultUrl = URL.createObjectURL(blob);
+        }
+
+        async function processImageItem(item) {
+            item.status = 'processing';
+            item.progress = 5;
+            renderQueue();
+
+            try {
+                const img = new Image();
+                img.src = item.previewUrl;
+                await img.decode();
+
+                const target = calculateTargetDimensions(item.origWidth, item.origHeight, currentScale);
+                item.outWidth = target.width;
+                item.outHeight = target.height;
+
+                // Bước 1: Phóng đại đa bước chất lượng cao (Multi-step High Quality Interpolation)
+                const { canvas, ctx } = multiStepHighQualityDraw(img, target.width, target.height);
+
+                const sharpenIntensity = parseInt(document.getElementById('sharpSlider').value, 10);
+                const clarityIntensity = parseInt(document.getElementById('claritySlider').value, 10);
+                const denoiseIntensity = parseInt(document.getElementById('denoiseSlider').value, 10);
+
+                // Bước 2: Làm sắc nét Unsharp Mask & Clarity
+                if (sharpenIntensity > 0 || clarityIntensity > 0 || denoiseIntensity > 0) {
+                    const rawImageData = ctx.getImageData(0, 0, target.width, target.height);
+                    let processedImageData = null;
+
+                    if (workerUrl) {
+                        try {
+                            processedImageData = await new Promise((resolve, reject) => {
+                                const worker = new Worker(workerUrl);
+                                worker.onmessage = (e) => {
+                                    if (e.data.type === 'progress') {
+                                        item.progress = e.data.progress;
+                                        const progBar = document.getElementById(`progbar-${item.id}`);
+                                        const badgeEl = document.getElementById(`badge-${item.id}`);
+                                        if (progBar) progBar.style.width = `${item.progress}%`;
+                                        if (badgeEl) badgeEl.innerHTML = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">${item.progress}%</span>`;
+                                    } else if (e.data.type === 'done') {
+                                        worker.terminate();
+                                        resolve(e.data.imageData);
+                                    }
+                                };
+                                worker.onerror = (err) => {
+                                    worker.terminate();
+                                    reject(err);
+                                };
+                                worker.postMessage({
+                                    imageData: rawImageData,
+                                    width: target.width,
+                                    height: target.height,
+                                    sharpenIntensity,
+                                    clarityIntensity,
+                                    denoiseIntensity
+                                }, [rawImageData.data.buffer]);
+                            });
+                        } catch (workerErr) {
+                            // Nếu Worker lỗi, chuyển tự động sang xử lý phân đoạn trên Main Thread
+                            const fallbackData = ctx.getImageData(0, 0, target.width, target.height);
+                            processedImageData = await processPixelsMainThread(
+                                fallbackData,
+                                target.width,
+                                target.height,
+                                sharpenIntensity,
+                                clarityIntensity,
+                                denoiseIntensity,
+                                (prog) => {
+                                    item.progress = prog;
+                                    const progBar = document.getElementById(`progbar-${item.id}`);
+                                    if (progBar) progBar.style.width = `${prog}%`;
+                                }
+                            );
+                        }
+                    } else {
+                        processedImageData = await processPixelsMainThread(
+                            rawImageData,
+                            target.width,
+                            target.height,
+                            sharpenIntensity,
+                            clarityIntensity,
+                            denoiseIntensity,
+                            (prog) => {
+                                item.progress = prog;
+                                const progBar = document.getElementById(`progbar-${item.id}`);
+                                if (progBar) progBar.style.width = `${prog}%`;
+                            }
+                        );
+                    }
+
+                    if (processedImageData) {
+                        ctx.putImageData(processedImageData, 0, 0);
+                    }
+                }
+
+                if (item.resultCanvas) {
+                    item.resultCanvas.width = 1;
+                    item.resultCanvas.height = 1;
+                }
+                item.resultCanvas = canvas;
+                await exportCanvasToHighQualityBlob(item);
+
+                item.status = 'done';
+                item.processedScale = currentScale;
+                item.progress = 100;
+            } catch (error) {
+                console.error('Lỗi nâng cấp ảnh:', error);
+                item.status = 'error';
+                showToast(`Lỗi khi xử lý ảnh "${item.file.name}".`, 'error');
+            }
+
+            renderQueue();
+        }
+
+        // Xử lý 1 ảnh cụ thể theo mức 2X/3X/4X/8K đang chọn
+        window.processSingleItemById = async function(id) {
+            if (isBatchProcessing) return;
+            const item = imageQueue.find(i => i.id === id);
+            if (!item) return;
+
+            isBatchProcessing = true;
+            updateHeaderStats();
+            await processImageItem(item);
+            isBatchProcessing = false;
+            updateHeaderStats();
+
+            if (item.status === 'done') {
+                const scaleLabel = SCALE_CONFIG[currentScale]?.label || `${currentScale}X`;
+                showToast(`Đã Upscale ${scaleLabel} (${item.outWidth}×${item.outHeight}) cho "${item.file.name}"!`, 'success');
+                openCompareModal(item.id);
+            }
+        };
+
+        // Xử lý Hàng loạt toàn bộ danh sách với mức 2X, 3X, 4X hoặc 8K đang chọn
+        document.getElementById('btnProcessAll').onclick = async () => {
+            if (isBatchProcessing || imageQueue.length === 0) return;
+
+            isBatchProcessing = true;
+            cancelBatchRequested = false;
+
+            const scaleLabel = SCALE_CONFIG[currentScale]?.label || `${currentScale}X`;
+            const btn = document.getElementById('btnProcessAll');
+            const btnText = document.getElementById('btnText');
+            const btnLoader = document.getElementById('btnLoader');
+            const btnIcon = document.getElementById('btnProcessIcon');
+            const btnCancel = document.getElementById('btnCancelBatch');
+            const batchCard = document.getElementById('batchProgressCard');
+            const batchBar = document.getElementById('batchProgressBar');
+            const batchCount = document.getElementById('batchProgressCount');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-75');
+            btnIcon.classList.add('hidden');
+            btnLoader.classList.remove('hidden');
+            btnCancel.classList.remove('hidden');
+            batchCard.classList.remove('hidden');
+
+            // Nếu có ảnh chưa nâng cấp ở mức Scale hiện tại thì ưu tiên xử lý, nếu tất cả đã xong ở mức hiện tại thì chạy lại tất cả
+            const itemsNotDoneAtCurrentScale = imageQueue.filter(i => i.status !== 'done' || i.processedScale !== currentScale);
+            const itemsToProcess = itemsNotDoneAtCurrentScale.length > 0 ? itemsNotDoneAtCurrentScale : imageQueue;
+            const totalToRun = itemsToProcess.length;
+
+            let completedCount = 0;
+
+            for (const item of itemsToProcess) {
+                if (cancelBatchRequested) break;
+
+                btnText.innerText = `Đang Upscale ${scaleLabel} (${completedCount + 1}/${totalToRun})...`;
+                const pct = Math.round((completedCount / totalToRun) * 100);
+                batchBar.style.width = `${pct}%`;
+                batchCount.innerText = `${completedCount}/${totalToRun} (${pct}%)`;
+
+                await processImageItem(item);
+                completedCount++;
+
+                const donePct = Math.round((completedCount / totalToRun) * 100);
+                batchBar.style.width = `${donePct}%`;
+                batchCount.innerText = `${completedCount}/${totalToRun} (${donePct}%)`;
+            }
+
+            isBatchProcessing = false;
+            btn.classList.remove('opacity-75');
+            btnIcon.classList.remove('hidden');
+            btnLoader.classList.add('hidden');
+            btnCancel.classList.add('hidden');
+            setTimeout(() => batchCard.classList.add('hidden'), 1200);
+
+            renderQueue();
+
+            if (cancelBatchRequested) {
+                showToast(`Đã dừng xử lý hàng loạt (${completedCount}/${totalToRun} ảnh hoàn tất).`, 'warning');
+            } else {
+                showToast(`Hoàn tất Upscale ${scaleLabel} cho ${completedCount} ảnh với chất lượng 100%!`, 'success');
+                if (imageQueue.length === 1 && imageQueue[0].status === 'done') {
+                    openCompareModal(imageQueue[0].id);
+                }
+            }
+        };
+
+        document.getElementById('btnCancelBatch').onclick = () => {
+            cancelBatchRequested = true;
+            showToast('Đang dừng sau khi hoàn tất ảnh hiện tại...', 'info');
+        };
+
+        // =========================================================================
+        // 9. TẢI ẢNH ĐƠN LẺ & TẢI HÀNG LOẠT (GIỮ NGUYÊN TÊN GỐC + KÝ TỰ SỐ ĐẦU)
+        // =========================================================================
+        window.downloadSingleItem = function(id) {
+            const idx = imageQueue.findIndex(i => i.id === id);
+            if (idx === -1) return;
+            const item = imageQueue[idx];
+            if (!item.resultUrl) return;
+
+            const finalName = buildOutputFilename(item, idx);
+            const a = document.createElement('a');
+            a.href = item.resultUrl;
+            a.download = finalName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            showToast(`Đã tải về: ${finalName}`, 'success');
+        };
+
+        document.getElementById('btnDownloadAllIndividual').onclick = async () => {
+            const doneItems = imageQueue
+                .map((item, index) => ({ item, index }))
+                .filter(entry => entry.item.status === 'done' && entry.item.resultUrl);
+
+            if (doneItems.length === 0) return;
+
+            showToast(`Đang tải xuống ${doneItems.length} ảnh...`, 'info');
+            for (let i = 0; i < doneItems.length; i++) {
+                const { item, index } = doneItems[i];
+                const finalName = buildOutputFilename(item, index);
+                const a = document.createElement('a');
+                a.href = item.resultUrl;
+                a.download = finalName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                await new Promise(r => setTimeout(r, 220));
+            }
+        };
+
+        document.getElementById('btnDownloadZip').onclick = async () => {
+            const doneEntries = imageQueue
+                .map((item, index) => ({ item, index }))
+                .filter(entry => entry.item.status === 'done' && entry.item.resultBlob);
+
+            if (doneEntries.length === 0) return;
+
+            const btnZip = document.getElementById('btnDownloadZip');
+            const origHtml = btnZip.innerHTML;
+            btnZip.disabled = true;
+            btnZip.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Đang nén ZIP...</span>`;
+            lucide.createIcons();
+
+            try {
+                const zip = new JSZip();
+                const usedNames = new Set();
+
+                doneEntries.forEach(({ item, index }) => {
+                    let filename = buildOutputFilename(item, index);
+                    if (usedNames.has(filename)) {
+                        let counter = 2;
+                        while (usedNames.has(`${counter}_${filename}`)) {
+                            counter++;
+                        }
+                        filename = `${counter}_${filename}`;
+                    }
+                    usedNames.add(filename);
+                    zip.file(filename, item.resultBlob);
+                });
+
+                const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+                const zipUrl = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = zipUrl;
+                const firstBase = splitFilename(doneEntries[0].item.file.name).baseName;
+                const numPrefix = document.getElementById('customNumberInput').value.trim() || '1';
+                a.download = `${numPrefix}_${firstBase}_${doneEntries.length}_anh.zip`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(zipUrl), 5000);
+
+                showToast(`Đã tải xuống gói ZIP gồm ${doneEntries.length} ảnh!`, 'success');
+            } catch (err) {
+                showToast('Không thể tạo tệp ZIP. Hãy thử tải từng ảnh.', 'error');
+            } finally {
+                btnZip.disabled = false;
+                btnZip.innerHTML = origHtml;
+                lucide.createIcons();
+            }
+        };
+
+        // =========================================================================
+        // 10. MODAL SO SÁNH TRƯỚC / SAU (INTERACTIVE SPLIT SLIDER + 1X/2X/4X ZOOM)
+        // =========================================================================
+        const compareModal = document.getElementById('compareModal');
+        const compareRange = document.getElementById('compareRange');
+        const modalOrigImg = document.getElementById('modalOrigImg');
+        const modalResultImg = document.getElementById('modalResultImg');
+        const compareDivider = document.getElementById('compareDivider');
+        const compareViewport = document.getElementById('compareViewport');
+        const compareStage = document.getElementById('compareStage');
+
+        function setComparisonPosition(percent) {
+            const clamped = Math.max(0, Math.min(100, percent));
+            compareRange.value = clamped;
+            modalOrigImg.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
+            compareDivider.style.left = `${clamped}%`;
+        }
+
+        compareRange.oninput = (e) => setComparisonPosition(parseFloat(e.target.value));
+
+        let isDraggingSlider = false;
+        function updateSliderFromPointer(clientX) {
+            const rect = compareStage.getBoundingClientRect();
+            if (rect.width <= 0) return;
+            const relX = clientX - rect.left;
+            const pct = (relX / rect.width) * 100;
+            setComparisonPosition(pct);
+        }
+
+        compareViewport.addEventListener('pointerdown', (e) => {
+            isDraggingSlider = true;
+            if (compareViewport.setPointerCapture) {
+                try { compareViewport.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+            updateSliderFromPointer(e.clientX);
+        });
+        compareViewport.addEventListener('pointermove', (e) => {
+            if (isDraggingSlider) {
+                updateSliderFromPointer(e.clientX);
+            }
+        });
+        ['pointerup', 'pointercancel'].forEach(evt => {
+            compareViewport.addEventListener(evt, (e) => {
+                isDraggingSlider = false;
+                if (compareViewport.releasePointerCapture) {
+                    try { compareViewport.releasePointerCapture(e.pointerId); } catch (_) {}
+                }
+            });
+        });
+
+        // Chế độ Zoom 100% -> 200% -> 400%
+        document.getElementById('btnToggleZoom').onclick = () => {
+            if (currentZoomLevel === 1) currentZoomLevel = 2;
+            else if (currentZoomLevel === 2) currentZoomLevel = 4;
+            else currentZoomLevel = 1;
+
+            compareStage.style.transform = `scale(${currentZoomLevel})`;
+            document.getElementById('zoomLabel').innerText = `Zoom: ${currentZoomLevel * 100}%`;
+        };
+
+        window.openCompareModal = function(id) {
+            const idx = imageQueue.findIndex(i => i.id === id);
+            if (idx === -1) return;
+            const item = imageQueue[idx];
+
+            activeModalItemId = item.id;
+            currentZoomLevel = 1;
+            compareStage.style.transform = 'scale(1)';
+            document.getElementById('zoomLabel').innerText = 'Zoom: 100%';
+
+            modalOrigImg.src = item.previewUrl;
+            modalResultImg.src = item.resultUrl || item.previewUrl;
+
+            const scaleUsed = item.processedScale || currentScale;
+            const scaleLabel = SCALE_CONFIG[scaleUsed]?.label || `${scaleUsed}X`;
+            document.getElementById('modalScaleTag').innerText = scaleLabel;
+            document.getElementById('modalTitle').innerText = item.file.name;
+            document.getElementById('modalOrigDim').innerText = `${item.origWidth}×${item.origHeight}`;
+
+            const target = calculateTargetDimensions(item.origWidth, item.origHeight, currentScale);
+            const newW = item.status === 'done' ? item.outWidth : target.width;
+            const newH = item.status === 'done' ? item.outHeight : target.height;
+            document.getElementById('modalNewDim').innerText = `${newW}×${newH} (${scaleLabel})`;
+            document.getElementById('modalFilenamePreview').innerText = buildOutputFilename(item, idx);
+
+            setComparisonPosition(50);
+            compareModal.classList.remove('hidden');
+        };
+
+        function closeCompareModal() {
+            compareModal.classList.add('hidden');
+            activeModalItemId = null;
+        }
+
+        document.getElementById('btnCloseModal').onclick = closeCompareModal;
+        document.getElementById('btnCloseModalBottom').onclick = closeCompareModal;
+        document.getElementById('btnModalDownload').onclick = () => {
+            if (activeModalItemId) {
+                downloadSingleItem(activeModalItemId);
+            }
+        };
+    </script>
+</body>
+</html>
